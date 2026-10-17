@@ -1947,6 +1947,7 @@ document.getElementById('btnClearMonth').addEventListener('click', () => {
 document.getElementById('btnClearAll').addEventListener('click', () => {
   if (!confirm2('RESET SEMUA DATA? Tindakan ini tidak bisa dibatalkan!')) return;
   Object.keys(localStorage).filter(k => k.startsWith('fintrack_')).forEach(k => localStorage.removeItem(k));
+  localStorage.setItem('fintrack_seeded', '1'); // cegah data demo muncul lagi
   showToast('Semua data direset.', 'expense');
   renderPage(getActivePage());
 });
@@ -2076,6 +2077,7 @@ document.getElementById('restoreFile').addEventListener('change', e => {
       if (!confirm2('Restore akan menimpa data yang ada sekarang. Lanjutkan?')) return;
       Object.keys(localStorage).filter(k => k.startsWith('fintrack_')).forEach(k => localStorage.removeItem(k));
       Object.entries(obj.data).forEach(([k, v]) => localStorage.setItem(k, v));
+      localStorage.setItem('fintrack_seeded', '1');
       showToast('Data berhasil dipulihkan!', 'income');
       setTimeout(() => location.reload(), 600);
     } catch (err) {
