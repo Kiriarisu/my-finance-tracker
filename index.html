@@ -1841,10 +1841,23 @@ function renderReminders() {
   const today = new Date();
   const curDay = today.getDate();
 
+  const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const monthExpenses = getMonthTx(today.getFullYear(), today.getMonth()).filter(t => t.type === 'expense');
+
   el.innerHTML = reminders.map(r => {
+    // Status lunas: override manual (r.paid[ym]) jika ada, selain itu deteksi otomatis dari transaksi bulan ini
+    const manual   = r.paid && r.paid[ym];            // true / false / undefined
+    const nameKey  = (r.name || '').toLowerCase();
+    const autoPaid = monthExpenses.some(t =>
+      ((t.note || '').toLowerCase().includes(nameKey)) ||
+      (t.category === 'Tagihan' && Number(t.amount) === Number(r.amount)));
+    const paid     = manual === undefined ? autoPaid : manual;
+
     const daysLeft = r.day - curDay;
-    const cls      = daysLeft < 0 ? 'due' : daysLeft <= 5 ? 'upcoming' : 'ok';
-    const statusMsg = daysLeft < 0 ? `Jatuh tempo ${Math.abs(daysLeft)} hari lalu` : daysLeft === 0 ? 'Jatuh tempo hari ini!' : `${daysLeft} hari lagi (tgl ${r.day})`;
+    const cls      = paid ? 'ok' : daysLeft < 0 ? 'due' : daysLeft <= 5 ? 'upcoming' : 'ok';
+    const statusMsg = paid
+      ? `Sudah dibayar bulan ini ${manual === undefined ? '(terdeteksi otomatis)' : '(ditandai manual)'}`
+      : daysLeft < 0 ? `Jatuh tempo ${Math.abs(daysLeft)} hari lalu` : daysLeft === 0 ? 'Jatuh tempo hari ini!' : `${daysLeft} hari lagi (tgl ${r.day})`;
     return `<div class="reminder-item">
       <div class="reminder-dot ${cls}"></div>
       <div class="reminder-info">
@@ -1852,10 +1865,27 @@ function renderReminders() {
         <div class="reminder-date">${statusMsg}</div>
       </div>
       <div class="reminder-amount">${fmt(r.amount)}</div>
+      <button class="reminder-del" title="${paid ? 'Tandai belum bayar' : 'Tandai sudah bayar'}" onclick="togglePaid('${r.id}')">${paid ? '↩' : '✓'}</button>
       <button class="reminder-del" onclick="deleteReminder('${r.id}')">🗑</button>
     </div>`;
   }).join('');
 }
+
+window.togglePaid = function(id) {
+  const now = new Date();
+  const ym  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const list = loadReminders();
+  const r = list.find(x => x.id === id);
+  if (!r) return;
+  const monthExpenses = getMonthTx(now.getFullYear(), now.getMonth()).filter(t => t.type === 'expense');
+  const nameKey = (r.name || '').toLowerCase();
+  const autoPaid = monthExpenses.some(t => ((t.note||'').toLowerCase().includes(nameKey)) || (t.category === 'Tagihan' && Number(t.amount) === Number(r.amount)));
+  r.paid = r.paid || {};
+  const current = r.paid[ym] === undefined ? autoPaid : r.paid[ym];
+  r.paid[ym] = !current;
+  saveReminders(list);
+  renderReminders();
+};
 
 document.getElementById('btnAddReminder').addEventListener('click', () => {
   const name   = document.getElementById('reminderName').value.trim();
